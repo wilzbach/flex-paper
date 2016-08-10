@@ -4,6 +4,7 @@
 \usepackage[T1]{fontenc}
 
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{color}
 \usepackage{hyperref}
 \usepackage{graphicx}
@@ -70,28 +71,27 @@ However there are two big problems: (1) for most densities the inverse CDF is no
 
 \subsection{The rejection method}
 
-An very popular alternative is the \textit{rejection} method - often known as \textit{acceptance-rejection} sampling. It only requires one to know the density of a distribution. The general idea is that if a random variable $(x, y)$ is distributed within the density $f$, then it has the density $f$.
+An very popular alternative is the \textit{rejection} method - often known as \textit{acceptance-rejection} sampling. It only requires one to know the density of a distribution. The general idea is that if a random variable $(x, y)$ is distributed within the density $f$, then it has the density $f$ (blue in \autoref{fig:rejection_method}).
 
-If we have a function $h(x)$ that majorizes the density function $f(x)$ (in this simple example $x = 1$) - in other words $ \forall x \in [l, r]: f(x) < h(x)$ where $l$ and $r$ are the left and right boundaries of an interval - then we use the hat function.
+This means we can sample $x$ and $y$ uniformly within the area that is strictly larger than $f$ and check whether the generated point is in the area covered by the density function. If it's within the area the point is \textit{accepted} (black in \autoref{fig:rejection_method}), otherwise it is \textit{rejected} (brown in \autoref{fig:rejection_method})) and new points are sampled until a point that is within the area and thus can be accepted is drawn.
 
- can define $f(x) / h(x)$. Note that this is typically written with a constant $M$: $h'(x) = M * h(x))$. 
-
-1) We sample a point from the area of our majorizing hat function (=linear)
-
-
-This means we can simplify sample $x$ and $y$ uniformly and check whether the generated point is in the area covered by the density function. If it's within the area the point is \textit{accepted}, otherwise it is \textit{rejected} and new points are sampled until a point that is within the area and thus can be accepted is drawn.
+More formally we need a hat function $h(x)$ that majorizes the density function $f(x)$. In other words $ \forall x \in [l, r]: f(x) < h(x)$, where $l$ and $r$ are the left and right boundaries of an interval.
+The hat function (green in \autoref{fig:rejection_method}) is the boundary function for our target density sampling. In this simple example the hat function would be the horizontal line $x = 1$.
 
 \begin{figure}[h!]
 \centering
 \includegraphics[width=0.8\textwidth]{figs/rejection_sampling.pdf}
-\caption{Rejection sampling of $sin(x)$ (blue). Hat function (green), squeeze function in red. Points are marked black when accepted, and brown for rejected.}
+\caption{Rejection sampling of $sin(x)$ (blue). Hat function ($x = 1$) is drawn in green, whereas the squeeze function ($1 - |1 - 2x / \pi |$) is drawn in red. Points are marked black when accepted, and brown for rejected.}
 \label{fig:rejection_method}
 \end{figure}
 
+It is important to see that for every point $x$ we evaluate whether it's within the density area $f(x)$. As $h(x)$ by definition always larger than $f(x)$ we can use $y * h(x) \leq f(x)$ when we want to programmatically check whether a generated point is within the target density.
+
 A simplified example of the basic rejection method can be seen here:
 
+\begin{minipage}{\linewidth}
 \begin{lstlisting}[language=D]
-S sample(S, RNG, Pdf, Hat)(RNG gen, Pdf pdf, Hat hat, S left, S right)
+S sample(RNG, Pdf, Hat, S)(ref RNG gen, Pdf pdf, Hat hat, S left, S right)
 {
     import std.random : uniform;
     for (;;)
@@ -104,27 +104,35 @@ S sample(S, RNG, Pdf, Hat)(RNG gen, Pdf pdf, Hat hat, S left, S right)
             return x;
     }
 }
+alias S = double;
 import std.math : PI, sin;
 import std.random: rndGen;
-sample(rndGen, (S) => sin(x), (S x) => 1, 0, PI);
+auto pdf = (S) => sin(x);
+auto hat = (S x) => 1;
+sample(rndGen, pdf, hat, S(0), PI);
 \end{lstlisting}
+\end{minipage}
 
 Furthermore the performance of this method depends heavily on the ratio of $f(x) / h(x) = 1 / \rho$, where $\rho$ is the average number of needed iterations to sample one value.
 
 \subsubsection{Rejection with inversion}
 
-Just a straight line as upper bound yields a lot of uncovered areas, thus we want to use more generic \textit{hat} functions:
+Just a straight line as upper bound yields a lot of uncovered areas, thus we want to use more generic \textit{hat} functions. If the inverse of the \textit{hat} function we can use the inversion method to sample from an arbitrary \textit{hat} function:
 
+\begin{minipage}{0.9\linewidth}
 \begin{lstlisting}[language=D]
-S sample(S, RNG, Pdf, Hat)(RNG gen, Pdf pdf, Hat hat, Hat hatInvCDF)
+S sample(S, RNG, Pdf, Hat, HatInv)(ref RNG gen, Pdf pdf, Hat hat,
+                                       HatInv hatInvCDF)
 {
     import std.random : uniform;
     for (;;)
     {
-        S u = uniform!("[]", S)(0, 1, gen);
         // generate x with density proportional to hat(x)
+        S u = uniform!("[]", S)(0, 1, gen);
         S x = hatInvCDF(u);
+       
         S y = uniform!("[]", S)(0, 1, gen);
+
         // check whether the sampled point is within the density
         if (y * hat(x) <= pdf(x))
             return x;
@@ -132,22 +140,64 @@ S sample(S, RNG, Pdf, Hat)(RNG gen, Pdf pdf, Hat hat, Hat hatInvCDF)
 }
 import std.math : PI, sin;
 import std.random: rndGen;
+alias S = double;
+auto pdf = (S) => sin(x);
 auto hatInvCDF = (S u) => 0 + u * (PI - 0);
 auto hat = (S x) => 1;
-sample(rndGen, (S) => sin(x), hat, hatInvCDF 0, PI);
+sample!S(rndGen, pdf, hat, hatInvCDF);
 \end{lstlisting}
+\end{minipage}
 
 The (Tin)flex algorithm will show a way to automatically construct a hat function for any differentiable density function.
+
+\subsection{Squeeze functions}
+
+Calculating the probability density function is often expensive, thus we would like to define a lower bound that can evaluated much faster. We call this lower bound $s(x)$ which is majorized by $f(x)$, i.e. $s(x) \leq f(x) \forall x \in [l, r]$. For example the squeeze function in \autoref{fig:rejection_method} is $1 - |1 - 2x / \pi |$. If $x$ is below the squeeze function, it can be accepted \textit{without} the need to calculate the density function as by definition every point in the squeeze function $s(x)$ is also below $f(x)$. Hence we can tune our \textit{sample} routine:
+
+\begin{minipage}{0.9\linewidth}
+\begin{lstlisting}[language=D]
+S sample(S, RNG, Pdf, Hat, HatInv, Squeeze)(ref RNG gen, Pdf pdf,
+                              Hat hat, HatInv hatInvCDF, Squeeze sq)
+{
+    import std.random : uniform;
+    for (;;)
+    {
+        // generate x with density proportional to hat(x)
+        S u = uniform!("[]", S)(0, 1, gen);
+        S x = hatInvCDF(u);
+
+        S y = uniform!("[]", S)(0, 1, gen);
+        S t = y * hat(x);
+
+        // check whether the sampled point is below the squeeze
+        if (t <= sq(x))
+            return x;
+
+        // check whether the sampled point is within the density
+        if (y * hat(x) <= pdf(x))
+            return x;
+    }
+}
+
+import std.math : abs, PI, sin;
+import std.random: rndGen;
+alias S = double;
+auto hatInvCDF = (S u) => 0 + u * (PI - 0);
+auto hat = (S x) => 1;
+auto sq = (S x) => 1 - abs(1 - 2 * x / PI);
+sample!S(rndGen, (S) => sin(x), hat, hatInvCDF, sq);
+\end{lstlisting}
+\end{minipage}
 
 \section{Intro to (Tin)flex}
 
 \subsection{Transformations}
 
-Tinflex uses a family of transformation of the pdf function. They can be grouped in two classes:
+Tinflex uses a family of transformation of the pdf function as it operates in \textit{logspace} to avoid numerical errors and yield faster results as only addition is required. The transformations can be grouped in two classes:
 
 \subsubsection{$c \neq 0$}
 
-%The general transformation function is $x^c$, however as it's only defined in $\mathbb{C}$, we need to restrict it to positive numbers.
+The general transformation function is $x^c$, however as inverse function is only defined in $\mathbb{C}$, we need to restrict it to positive numbers.
 
 \[T_c(x) = sgn(c) * x^c\]
 
@@ -165,13 +215,27 @@ and it's inverse:
 
 \[T_c^{-1}(x) = sgn(c) * (sgn(c) * x)^{\frac{1}{c}}\]
 
+An example of $T_c$ with $c = 2$ can be seen in \autoref{fig:sgn_pow} and for $c = -0.5$ in \autoref{fig:sgn_pow_0_5}.
 
-\begin{figure}[p]
+\begin{figure}[h!]
 \centering
 \includegraphics[width=0.8\textwidth]{figs/a_2_sgn_pow.pdf}
-\caption{Exponential function (red) and it's inverse the natural log (blue)}
-\label{fig:log_exp}
+\caption{$x^2$ (red) and it's inverse $x^{1/2}$ (blue)}
+\label{fig:sgn_pow}
 \end{figure}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{figs/a_2_sgn_pow.pdf}
+\caption{$x^2$ (red) and it's inverse $x^{1/2}$ (blue)}
+\label{fig:sgn_pow_0_5}
+\end{figure}
+
+\pagebreak
+
+\ \\
+
+\pagebreak
 
 \subsubsection{$c = 0$}
 
@@ -181,8 +245,7 @@ and it's inverse:
 
 \[T_c^{-1}(x) = exp(x) \]
 
-
-\begin{figure}[p]
+\begin{figure}[h]
 \centering
 \includegraphics[width=0.8\textwidth]{figs/log_exp}
 \caption{Exponential function (red) and it's inverse the natural log (blue)}

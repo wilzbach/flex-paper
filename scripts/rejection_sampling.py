@@ -8,8 +8,9 @@ x = np.linspace(-np.pi / 2, 1.5 * np.pi, 1000)
 plt.plot(x, np.sin(x))
 plt.plot(x, np.full(len(x), 1.0))
 #plt.margins(0, 0.1)
-y2 = np.sign(np.pi / 2 - x) * x / np.pi * 2
-y2[x > (np.pi / 2)] += 2
+# y2 = np.sign(np.pi / 2 - x) * x / np.pi * 2
+# y2[x > (np.pi / 2)] += 2
+y2 = 1 - np.abs(1 - x / np.pi * 2)
 plt.axis([0, np.pi, 0, 1.1])
 plt.plot(x, y2)
 
