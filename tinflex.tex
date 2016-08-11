@@ -11,6 +11,9 @@
 \usepackage{listings}
 \usepackage{lstautogobble}
 \usepackage{svgcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+
 \setlength{\parindent}{0cm}
 
 \definecolor{MediumBlue}{rgb}{0.000,0.000,0.804}
@@ -113,7 +116,7 @@ sample(rndGen, pdf, hat, S(0), PI);
 \end{lstlisting}
 \end{minipage}
 
-Furthermore the performance of this method depends heavily on the ratio of $f(x) / h(x) = 1 / \rho$, where $\rho$ is the average number of needed iterations to sample one value.
+Furthermore the performance of this method depends heavily on the ratio of $f(x) / h(x) = \alpha$, where $1 / \alpha$ is the average number of needed iterations to sample one value.
 
 \subsubsection{Rejection with inversion}
 
@@ -130,7 +133,7 @@ S sample(S, RNG, Pdf, Hat, HatInv)(ref RNG gen, Pdf pdf, Hat hat,
         // generate x with density proportional to hat(x)
         S u = uniform!("[]", S)(0, 1, gen);
         S x = hatInvCDF(u);
-       
+
         S y = uniform!("[]", S)(0, 1, gen);
 
         // check whether the sampled point is within the density
@@ -189,11 +192,110 @@ sample!S(rndGen, (S) => sin(x), hat, hatInvCDF, sq);
 \end{lstlisting}
 \end{minipage}
 
+
+\subsection{Composition}
+
+A Density function might split into multiple parts with each having it's own hat and squeeze. If we are given multiple density, we can sample from the overall density by picking from each sampler according to a given probability $p_i$ which is defined by their hat area. For example \autoref{fig:dist_composition} shows a distribution that is composed out of multiple hat and squeeze parts.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{figs/dist_density_at_boundaries_b_0_hs.pdf}
+\caption{Distribution split into multiple hat (red) and squeeze (green) functions.}
+\label{fig:dist_composition}
+\end{figure}
+
+The idea of composing distributions will be illustrated with the following example. The density function is composed out of an exponential distribution (left) and a uniform distribution (right) and features a gap in the middle.
+
+\begin{lstlisting}[language=D]
+S sample(S, RNG, Sampler)(ref RNG gen, Sampler[] samplers, S[] probs)
+{
+    import mir.random.discrete : discrete;
+    // pick a sampler with prob_i
+    auto ds = discrete(probs);
+    return samplers[ds(gen)](gen);
+}
+
+import std.random: Mt19937, uniform, rndGen;
+alias S = double;
+
+alias Sampler = S delegate(ref typeof(gen) gen);
+S[] probs = [0.7, 0.3];
+Sampler[] samplers = new Sampler[probs.length];
+
+// a part of the exponential distribution on the left
+samplers[0] = (ref typeof (gen) gen) {
+    import std.math : log;
+    auto finv = (S x) => -log(S(1) - x);
+    S u = uniform!("[)", S)(0, 0.8);
+    return finv(u);
+};
+
+// a uniform sampler on the right half
+samplers[1] = (ref typeof (gen) gen) {
+    return uniform!("[]", S)(2, 3, gen);
+};
+sample!S(gen, samplers, probs);
+\end{lstlisting}
+
+The result of our basic composition with different target probabilities for the samples can be seen in \autoref{fig:composition_exp_uniform}. The (Tin)flex algorithm will automatically generate intervals with hat and squeeze function for the desired distribution that are connected with such a composition sampler.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figs/composed_dist_70_30.pdf}
+        \caption{$p = [0.7, 0.3]$}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figs/composed_dist_70_30_cum.pdf}
+        \caption{$p = [0.7, 0.3]$, cumlative}
+    \end{subfigure}
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figs/composed_dist_30_70.pdf}
+        \caption{$p = [0.3, 0.7]$}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figs/composed_dist_30_70_cum.pdf}
+        \caption{$p = [0.3, 0.7]$, cumulative}
+    \end{subfigure}
+    \caption{Composition of exponential and uniform distribution}
+     \label{fig:composition_exp_uniform}
+\end{figure}
+
 \section{Intro to (Tin)flex}
+
+\subsection{Idea}
+
+Split the density distribution into multiple intervals for which better approximation for the \textit{hat} and \textit{squeeze} function can be constructed. Sample from the intervals using \textit{composition} and then for the selected intervals sample a value $x$ using the \textit{rejection with inversion} method.
+For example in \autoref{fig:tf_example_normal} the normal distribution is split into six intervals with different hat and squeeze functions. The efficiency of the sampling can iteratily be improved by splitting more intervals and thus yielding a better approximation to the density.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figs/tf_example_normal_6.pdf}
+        \caption{$\rho = 1.8$, 6 intervals constructed}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figs/tf_example_normal_10.pdf}
+        \caption{$\rho = 1.25$, 10 intervals constructed}
+    \end{subfigure}
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figs/tf_example_normal_14.pdf}
+        \caption{$\rho = 1.1$, 14 intervals constructed}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figs/tf_example_normal_44.pdf}
+        \caption{$\rho = 1.01$, 44 intervals constructed}
+    \end{subfigure}
+    \caption{Flex algorithm for the normal distribution with different efficiencies $\rho$}
+     \label{fig:tf_example_normal}
+\end{figure}
 
 \subsection{Transformations}
 
-Tinflex uses a family of transformation of the pdf function as it operates in \textit{logspace} to avoid numerical errors and yield faster results as only addition is required. The transformations can be grouped in two classes:
+To approximate the hat and squeeze function Tinflex constructs linear functions when an interval is either concave or convex.
+However as most distributions aren't \textit{concave}, but \textit{log-concave}, Tinflex uses a family of transformation of the pdf function as it operates in \textit{logspace} and can thus "force" most distributions to be concave. The transformations can be grouped in two classes:
 
 \subsubsection{$c \neq 0$}
 
@@ -201,21 +303,34 @@ The general transformation function is $x^c$, however as inverse function is onl
 
 \[T_c(x) = sgn(c) * x^c\]
 
-With the usual inversion rules we get
+With the usual inversion rules we get if $c > 0$
 
 \begin{align*}
-y &= sgn(c) * x^c \\
-log(y) &= log(sgn(c)) + log(x^c) \\
-log(y) &= log(sgn(c)) + c * log(x) \\
-\frac{log(y) - log(sgn(c))}{c} &= log(x) \\
-exp\left(\frac{log(y) - log(sgn(c))}{c}\right) &= x
+y &= x^c \\
+log(y) &= log(x^c) \\
+log(y) &= c * log(x) \\
+\frac{log(y)}{c} &= log(x) \\
+exp\left(\frac{log(y)}{c}\right) &= x
 \end{align*}
 
-and it's inverse:
+which is $y^{1 / c}$ and if $c < 0$:
 
-\[T_c^{-1}(x) = sgn(c) * (sgn(c) * x)^{\frac{1}{c}}\]
+\begin{align*}
+y &= -x^c \\
+log(y) &= log(-x^c) \\
+log(y) &= -c * log(x) \\
+\frac{log(y)}{c} &= -log(x) \\
+exp\left(\frac{log(y)}{c}\right) &= -x
+\end{align*}
+
+which is $(-y)^{1 / c}$.
+Thus in general we can define the inverse function as:
+
+\[T_c^{-1}(x) = (sgn(c) * x)^{\frac{1}{c}}\]
 
 An example of $T_c$ with $c = 2$ can be seen in \autoref{fig:sgn_pow} and for $c = -0.5$ in \autoref{fig:sgn_pow_0_5}.
+
+Please note that (1) in the Tinflex paper and below this case is split into multiple common cases to have simpler formulas and reduce numerical errors. Furthermore (2) only with $c = 0$ the transformation is two-sided, thus for $c < 0$ $T^{-1}(x)$ is only defined for $x < 0$ in $\mathbb{R}$.
 
 \begin{figure}[h!]
 \centering
@@ -226,8 +341,8 @@ An example of $T_c$ with $c = 2$ can be seen in \autoref{fig:sgn_pow} and for $c
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=0.8\textwidth]{figs/a_2_sgn_pow.pdf}
-\caption{$x^2$ (red) and it's inverse $x^{1/2}$ (blue)}
+\includegraphics[width=0.8\textwidth]{figs/a_0_5_sgn_pow.pdf}
+\caption{$-x^{-0.5}$ (red) and it's inverse $-x^{1/-0.5}$ (blue)}
 \label{fig:sgn_pow_0_5}
 \end{figure}
 
@@ -238,6 +353,8 @@ An example of $T_c$ with $c = 2$ can be seen in \autoref{fig:sgn_pow} and for $c
 \pagebreak
 
 \subsubsection{$c = 0$}
+
+The special case for $c = 0$ needs to be made as division by zero isn't defined, however with this case the natural logarithm and exponential function is used.
 
 \[T_c(x) = log(x)  \]
 
@@ -254,21 +371,20 @@ and it's inverse:
 
 \ \\
 
-Please note in the Tinflex paper and below this case is split into multiple common cases to have simpler formulas and reduce numerical errors.
-
-Moreover according to the paper $f(x)$ is the pdf, and $\tilde{f}(x)$ is its transformation.
+Moreover in accordance to the Tinflex paper $f(x)$ is the pdf, and $\tilde{f}(x)$ is its transformation.
 
 \[\tilde{f}(x) = T_c(f(x))  \]
 
 \subsubsection{Input of Tinflex}
 
 Tinflex expects the \textbf{log}-density, which means that for $c = 0$, no transformations need to be applied.
-However for $c \neq 0$ the inverse is needed, we first needs to apply the \textit{inverse} $T_c^{-1}(x) = exp(x)$ and then apply the other $T_c$ transformation:
+However for $c \neq 0$ the inverse is needed, we first need to apply the \textit{inverse} $T_c^{-1}(x) = exp(x)$ and then apply the other $T_c$ transformation:
 
 \begin{align*}
-\tilde{f}(x) &= exp(T_{c \neq 0}(x)) \\
-&= exp(sgn(c) * x^c) \\
-&= sgn(c) * exp(x * c)
+\tilde{f}(x) &= T_{c \neq 0}(T_0^{-1}(x))) \\
+&= T_{c \neq 0}(exp(x))) \\
+&= sgn(c) * exp(x)^c \\
+&= sgn(c) * exp(x *c)
 \end{align*}
 
 \subsection{Linear functions}
@@ -282,213 +398,308 @@ Remember that the transformation is applied with $T_c(x)$.
 
 \subsection{Construction of linear functions}
 
-For both secants and tangents $x_0$ and $\alpha$ are defined as follows:
+For both secants and tangents $x_0$ and $\alpha$ within the interval $[\ell, r]$ are defined as follows:
 
 \begin{enumerate}
-\item $x_0$ is $b_l$ if $\tilde{f}(b_l) >= \tilde{f}(b_r)$, $b_r$ otherwise
+\item $x_0$ is $\ell$ if $\tilde{f}(\ell) >= \tilde{f}(r)$, $r$ otherwise
 \item $\alpha = \tilde{f}(x_0)$
 \end{enumerate}
 
 In fact only $\beta$ is defined differently: \\ 
 \ \\
 Tangent: $\beta = \tilde{f}'(x_0)$ \\ 
-Secant:  $\beta = \frac{\tilde{f}(b_r) - \tilde{f}(b_l)}{b_r - b_l}$
+Secant:  $\beta = \frac{\tilde{f}(r) - \tilde{f}(\ell)}{r - \ell}$
 
 
 \section{Area $A_h$}
 
+For the sampling we want to be able to compute the inverse CDF for any $x$ in a choosen interval.
+
+The area below a constructed hat function (and thus respectively for the squeeze function) within the interval $[\ell, r]$ can be calculated by its definite integral. $F_{T_c}$ is the antiderivative (aka primitive integral) of the inverse transformation $T^{-1}$ as $h(x) = T^{-1}(\tilde{h}(x))$ and $F_{T_c}(x) = \int_{-\infty}^{x} T^{-1}(t) dt$. Note that $\tilde{h}(x)' = \beta$.
+
 \begin{align*}
-A_h &= \int_{b_l}^{b_r} h(x) dx \\
-&= \int_{b_l}^{b_r} T^{-1}(\alpha + \beta * (x - x_0)) dx \\
-&= \frac{1}{\beta} \big( F_T (\alpha + \beta * (b_r - x_0)) - F_T(\alpha + \beta * (b_l - x_0)) \big) \\
-&= \frac{1}{\beta} \big( F_T (h(b_r)) - F_T(h(b_l)) \big)
+A_h &= \int_{\ell}^{r} h(x) dx \\
+	&= \int_{\ell}^{r} T^{-1}(\tilde{h}(x)) * \frac{\tilde{h'}(x)}{\tilde{h}'(x)} dx \\
+	&= \int_{\ell}^{r} (F_T(\tilde{h}(x))' * \frac{1}{\tilde{h}'(x)} dx \\
+&= \frac{1}{\beta} \big( F_{T_c} (\tilde{h}(r)) - F_{T_c}(\tilde{h}(\ell)) \big)
 \end{align*}
 
-\textcolor{red}{TODO: explain why the $\frac{1}{\beta}$ appears here}
+The CDF $H_i(x)$ with $x \in [l_i, r_i]$ is thus:
+
+\[ \frac{1}{\beta} \big( F_{T_c} (\tilde{h}(x)) - F_{T_c}(\tilde{h}(\ell)) \big) \]
+
+with $H_i(r_i) = A_h$.
 
 \subsection{c = 1}
 
- $F_T = \frac{1}{2} * x^{\frac{2}{1}}$:
+From  $T^{-1} = x$ follows trivially its integral $F_{T_1} = \frac{1}{2} * x^{\frac{2}{1}}$
+and then we can simplify the above equation to:
 
 \begin{align*}
-A_h &= \frac{1}{\beta} \big(h(b_r) - h(b_l) \big) \\
-&= \frac{1}{\beta} \left(0.5 * (\alpha + \beta * (b_r - x_0))^2 - 0.5 * (\alpha + \beta * (b_l - x_0))^2 \right) \\
+A_h &= \frac{1}{\beta} \big(F_{T_1}(h(r)) - F_{T_1}(h(\ell)) \big) \\
+&= \frac{1}{\beta} \left(0.5 * (\alpha + \beta * (r - x_0))^2 - 0.5 * (\alpha + \beta * (\ell - x_0))^2 \right) \\
 \end{align*}
 
 \subsubsection{Z-Trick}
 
-Z-Trick, $x_0$ can only be either $b_r$ or $b_l$, thus either $b_r - x_0$ or $b_l - x_0$ is zero. \\
+Z-Trick, $x_0$ can only be either $r$ or $\ell$, thus either $r - x_0$ or $\ell - x_0$ is zero. \\
 
-\textbf{$I) \quad x_0 = b_l$}
-
-\begin{align*}
-A_h &= \frac{0.5}{\beta} \left( (\alpha + \beta * (b_r - b_l))^2 - \alpha^2  \right) \\
-&= \frac{0.5}{\beta} \left( \alpha^2 + 2 * \alpha * \beta * (b_r - b_l) + (\beta * (b_r - b_l))^2 - \alpha^2  \right) \\
-&= \frac{0.5}{\beta} \left( 2 * \alpha * \beta * (b_r - b_l) + (\beta * (b_r - b_l))^2 \right) \\
-&= 0.5 * \left( 2 * \alpha * (b_r - b_l) + \beta * (b_r - b_l)^2 \right) \\
-&= 0.5 * (b_r - b_l) * \left( 2 * \alpha  + \beta * (b_r - b_l) \right) \\
-&= (b_r - b_l) * \left(\alpha  + 0.5 * \beta * (b_r - b_l) \right) \\
-\end{align*}
-
-\textbf{$II) \quad x_0 = b_r$}
+\textbf{$I) \quad x_0 = \ell$}
 
 \begin{align*}
-A_h &= \frac{0.5}{\beta} \left( \alpha^2 - (\alpha + \beta * (b_l - b_r))^2 \right) \\
-&= \frac{0.5}{\beta} \left( \alpha^2 - \alpha^2 - 2 * \alpha * \beta * (b_l - b_r) - (\beta * (b_l - b_r))^2   \right) \\
-&= \frac{0.5}{\beta} \left( - 2 * \alpha * \beta * (b_l - b_r) - (\beta * (b_l - b_r))^2 \right) \\
-&= -0.5 * \left( 2 * \alpha * (b_l - b_r) + \beta * (b_l - b_r)^2 \right) \\
-&= -0.5 * (b_l - b_r) * \left( 2 * \alpha  + \beta * (b_l - b_r) \right) \\
+A_h &= \frac{0.5}{\beta} \left( (\alpha + \beta * (r - \ell))^2 - \alpha^2  \right) \\
+&= \frac{0.5}{\beta} \left( \alpha^2 + 2 * \alpha * \beta * (r - \ell) + (\beta * (r - \ell))^2 - \alpha^2  \right) \\
+&= \frac{0.5}{\beta} \left( 2 * \alpha * \beta * (r - \ell) + (\beta * (r - \ell))^2 \right) \\
+&= 0.5 * \left( 2 * \alpha * (r - \ell) + \beta * (r - \ell)^2 \right) \\
+&= 0.5 * (r - \ell) * \left( 2 * \alpha  + \beta * (r - \ell) \right) \\
+&= (r - \ell) * \left(\alpha  + 0.5 * \beta * (r - \ell) \right) \\
 \end{align*}
 
-\textcolor{red}{Current code is different}
+\textbf{$II) \quad x_0 = r$}
+
+\begin{align*}
+A_h &= \frac{0.5}{\beta} \left( \alpha^2 - (\alpha + \beta * (\ell - r))^2 \right) \\
+&= \frac{0.5}{\beta} \left( \alpha^2 - \alpha^2 - 2 * \alpha * \beta * (\ell - r) - (\beta * (\ell - r))^2   \right) \\
+&= \frac{0.5}{\beta} \left( - 2 * \alpha * \beta * (\ell - r) - (\beta * (\ell - r))^2 \right) \\
+&= -0.5 * \left( 2 * \alpha * (\ell - r) + \beta * (\ell - r)^2 \right) \\
+&= -0.5 * (\ell - r) * \left( 2 * \alpha  + \beta * (\ell - r) \right) \\
+&= - (\ell - r) * \left( \alpha  + 0.5 * \beta * (\ell - r) \right) \\
+&= (r - \ell) * \left( \alpha  + 0.5 * \beta * (\ell - r) \right) \\
+\end{align*}
+
+this means with a helper function $\sigma(x)$ which is
+
+\[
+	\sigma(x) =
+	\begin{cases}
+		1 & \text{for } x = \ell \\
+		-1 & \text{for } x = r \\
+	\end{cases}
+\]
+
+we can summarize this in one equation:
+
+\[
+	A_{h_1} = (r - \ell) * \left( \alpha  + 0.5 * \beta * \sigma(x) * (r - \ell) \right) \\
+\]
 
 \subsection{c = 0}
 
-$F_T = e^x$
+$F_{T_0} = e^x$
 
 \begin{align*}
-A_h &= \frac{1}{\beta} \left( e^{h(b_r)} - e^{h(b_l)} \right)
+A_{h_0} &= \frac{1}{\beta} \left( e^{h(r)} - e^{h(\ell)} \right)
 \end{align*}
 
-\textcolor{green}{Similar to current code.}
-
-Z-trick:
-
-I) $x_0 = b_l$:
+First we simplify the equation a bit:
 
 \begin{align*}
-A_h &= \frac{1}{\beta} \left( e^{h(b_r)} - e^{h(b_l)} \right) \\
-&= \frac{1}{\beta} \left( e^{\alpha + \beta * (b_r - x_0)} - e^{\alpha + \beta * (b_r - x_0)} \right) \\
-&= \frac{1}{\beta} \left( e^{\alpha + \beta * (b_r - b_l)} - e^{\alpha} \right) \\
-&=\frac{e^{\alpha}}{\beta} \left( e^{\beta (b_r - b_l)} - 1 \right) \\
+A_{h_0} &= \frac{1}{\beta} \left( e^{h(r)} - e^{h(\ell)} \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha + \beta (r - x_0)} - e^{\alpha + \beta (l - x_0)} \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha + \beta r - \beta x_0} - e^{\alpha + \beta l - \beta x_0} \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha} * e^{\beta r} * e^{-\beta x_0} - e^{\alpha} * e^{\beta l} * e^{- \beta * x_0} \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha - \beta x_0} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+\end{align*}
+
+Again we use the z-trick to distinguish between both cases.
+
+
+I) $x_0 = \ell$:
+
+\begin{align*}
+	A_{h_0} &= \frac{1}{\beta} \left( e^{\alpha - \beta * x_0} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha - \beta * \ell} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+	&= \frac{1}{\beta} \left(e^{\alpha - \beta \ell - \beta r} - e^{\alpha - \beta \ell + \beta \ell} \right) \\
+	&= \frac{1}{\beta} \left(e^{\alpha - \beta \ell - \beta r} - e^{\alpha} \right) \\
+	&= \frac{e^{\alpha}}{\beta} \left(e^{- \beta \ell - \beta r} - 1) \right) \\
+	&= \frac{e^{\alpha}}{\beta} \left(e^{\beta (r - \ell)} - 1 \right) \\
 \end{align*}
 
 where $e^{\alpha} = g(x)$
 
-Approximation with Taylor-Series of $n = 4$ with $k = \beta (b_r - b_l)$
+Approximation with Taylor-Series of $n = 4$ with $k = \beta (r - \ell)$
 
 \begin{align*}
-A_h &= \frac{e^{\alpha}}{\beta} \left(1 + k + \frac{k^2}{2} +  \frac{k^3}{6} + \frac{k^4}{24} - 1 \right)
+	A_{h_0} &= \frac{e^{\alpha}}{\beta} \left(1 + k + \frac{k^2}{2} +  \frac{k^3}{6} + \frac{k^4}{24} - 1 \right)
 \end{align*}
 
-II) $x_0 = b_r$:
+II) $x_0 = r$:
 
 \begin{align*}
-A_h &=\frac{e^{\alpha}}{\beta} \left(1 - e^{\beta (b_l - b_r)}\right) \\
+	A_{h_0} &= \frac{1}{\beta} \left( e^{\alpha - \beta * x_0} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha - \beta * r} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+	&= \frac{1}{\beta} \left(e^{\alpha - \beta r - \beta r} - e^{\alpha - \beta r + \beta \ell} \right) \\
+	&= \frac{1}{\beta} \left(e^{\alpha} - e^{\alpha - \beta r + \beta \ell} \right) \\
+	&= \frac{e^{\alpha}}{\beta} \left(1 - e^{- \beta r + \beta \ell} ) \right) \\
+	&= \frac{e^{\alpha}}{\beta} \left(1 - e^{\beta (\ell - r)}  \right) \\
 \end{align*}
+
+hence in general
+
+\[
+	\frac{e^{\alpha} * \sigma(x)}{\beta} \left(e^{\beta * \sigma(x) (r - \ell)} - 1 \right) \\
+\]
 
 with Taylor
 
 \begin{align*}
-A_h &= \frac{e^{\alpha}}{\beta} \left(1 - \left(1 + k + \frac{k^2}{2} +  \frac{k^3}{6} + \frac{k^4}{24} \right) \right)
+	A_{h_0} &= \frac{e^{\alpha}}{\beta} \left(1 - \left(1 + k + \frac{k^2}{2} +  \frac{k^3}{6} + \frac{k^4}{24} \right) \right)
 \end{align*}
 
-\textcolor{red}{Different to current code.}
+and thus:
+
+\[
+	A_{h_0} = \frac{e^{\alpha}}{\beta} * \sigma(x) * \left(e^{\beta * \sigma(x) (\ell - r)} - 1 \right)
+\]
+
+\textcolor{red}{Look at Taylor}
 
 \subsection{c = -0.5}
 
-$F_T = \frac{1}{x^2}$
+$T_{-0.5}^{-1} = \frac{1}{x^2}$, hence $F_{T_{-0.5}} = - \frac{1}{x}$
 
-\begin{align*}
-A_h &= \frac{1}{\beta} \left(\frac{1}{h(b_r)^2} - \frac{-1}{h(b_l)^2} \right) \\
-& = \frac{1}{\beta} \left(\frac{1}{h(b_r)^2} - \frac{1}{h(b_l)^2} \right)
-\end{align*}
 
 \subsubsection{Z-trick}
 
 
-$F_T = - \frac{1}{x}$
-
 \begin{align*}
-A_h &= \frac{1}{\beta} \left(\frac{-1}{h(b_r)} - \frac{-1}{h(b_l)} \right) \\
-& = \frac{1}{\beta} \left(- \frac{1}{h(b_r)} + \frac{1}{h(b_l)} \right)
+A_h &= \frac{1}{\beta} \left(\frac{-1}{\tilde{h}(r)} - \frac{-1}{\tilde{h}(\ell)} \right) \\
+& = \frac{1}{\beta} \left(- \frac{1}{\tilde{h}(r)} + \frac{1}{\tilde{h}(\ell)} \right) \\
+& = \frac{1}{\beta} \left(\frac{1}{\tilde{h}(l)} - \frac{1}{\tilde{h}(r)} \right)
 \end{align*}
 
 \subsubsection{Z-trick}
 
-I)
+I) $x_0 = \ell$
 
 \begin{align*}
-A_h & = \frac{1}{\beta} \left(- \frac{1}{\alpha - (\beta * (b_l - b_r)} + \frac{1}{\alpha} \right)
+	A_{h_{-0.5}} & = \frac{0}{\beta} \left(\frac{1}{\alpha} - \frac{1}{\alpha - (\beta * (\ell - r)} \right) \\
+	& = \frac{1}{\alpha \beta} - \frac{1}{\alpha \beta - (\beta^2 * (\ell - r)} \\
+	& = \frac{\alpha \beta - (\beta^2 * (\ell - r)}{(\alpha \beta) * (\alpha \beta - (\beta^2 * (\ell - r))} - \frac{\alpha \beta}{\alpha \beta * ( \alpha \beta - (\beta^2 * (\ell - r))} \\
+	& = \frac{-\beta^2 * (\ell - r)}{\alpha \beta * \alpha \beta - \alpha \beta (\beta^2 * (\ell - r))}\\
+	& = \frac{-(\ell - r)}{\alpha^2 - \alpha \beta (\ell - r)}\\
+	& = \frac{r - \ell}{\alpha^2 + \alpha \beta (r - \ell)}\\
 \end{align*}
 
-II)
+II) $x_0 = r$
 
 \begin{align*}
-A_h & = \frac{1}{\beta} \left(- \frac{1}{\alpha} + \frac{1}{\alpha - (\beta * (b_r - b_l)} \right)
+A_{h_{-0.5}} & = \frac{1}{\beta} \left(\frac{1}{\alpha - (\beta * (r - \ell)} - \frac{1}{\alpha} \right) \\
 \end{align*}
 
-\textcolor{red}{Different to current code}
+and thus in general:
+
+\begin{align*}
+	A_{h_{-0.5}} & = \frac{r - \ell}{\alpha^2 + \alpha \beta * \sigma(x) * (r - \ell)}\\
+\end{align*}
+
+
+
+
+
+
 
 \subsection{c = -1}
 
-$F_T = - log(-x)$
+$T_{-1} = -\frac{1}{x}$, thus its integral $F_{T_{-1}} = - log(-x)$
 
 \begin{align*}
-A_h &= \frac{1}{\beta} \left(-log(-h(b_r)) + log(-(h_l)) \right) \\
-&= \frac{1}{\beta} \left(-log(-\alpha - (\beta * (b_r - b_l))) + log(-\alpha) \right)
+	A_{h_{-1}} &= \frac{1}{\beta} \left(-log(-\tilde{h}(r)) + log(-\tilde{h}(l)) \right) \\
+&= \frac{1}{\beta} \left(-log(-\alpha - (\beta * (r - \ell))) + log(-\alpha) \right)
 \end{align*}
 
-\subsubsection{Z-trick}
+we use the Z-trick again:
 
-I) $x_0 = b_l$
+I) $x_0 = \ell$
 
 \begin{align*}
-A_h &= \frac{1}{\beta} \left(-log(-h(b_r)) + log(-(h_l)) \right) \\
-&= \frac{1}{\beta} \left(-log(-\alpha - (\beta * (b_r - b_l))) + log(-\alpha) \right)
+	A_{h_{-1}} &= \frac{1}{\beta} \left(-log(-\tilde{h}(r)) + log(-\tilde{h}(l)) \right) \\
+&= \frac{1}{\beta} \left(-log(-\alpha - (\beta * (r - \ell))) + log(-\alpha) \right)
 \end{align*}
 
-II) $x_0 = b_r$
+II) $x_0 = r$
 
 \begin{align*}
-A_h &= \frac{1}{\beta} \left(- log(-\alpha) + log(-\alpha - (\beta * (b_r - b_l))) \right)
+A_{h_{-1}} &= \frac{1}{\beta} \left(- log(-\alpha) + log(-\alpha - (\beta * (\ell - r))) \right)
 \end{align*}
+
+
+and in general:
+
+\[
+	A_{h_{-1}} = \frac{\sigma(x)}{\beta} \left(-log(-\alpha - (\beta * \sigma(x) * (r - \ell))) + log(-\alpha) \right)
+\]
+
 
 \subsection{$c > 0$}
 
-$F_T = \frac{c}{c + 1} * x^{\frac{c + 1}{c}}$
+$T_c^{-1} = x^{1/c}$, thus it's integral is $F_T = \frac{c}{c + 1} * x^{\frac{c + 1}{c}}$
 
 \begin{align*}
-A_h &= \frac{1}{\beta} \left( \frac{c}{c + 1} h(b_r)^{\frac{c + 1}{c}} - \frac{c}{c + 1} h(b_l)^{\frac{c + 1}{c}} \right) \\
-A_h &= \frac{c}{\beta * (c + 1)}  \left( h(b_r)^{\frac{c + 1}{c}} - h(b_l)^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{1}{\beta} \left( \frac{c}{c + 1} h(r)^{\frac{c + 1}{c}} - \frac{c}{c + 1} h(\ell)^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{c}{\beta * (c + 1)}  \left( h(r)^{\frac{c + 1}{c}} - h(\ell)^{\frac{c + 1}{c}} \right) \\
 \end{align*}
 
-I) $x_0 = b_l$
+we use the z-trick again:
+
+I) $x_0 = \ell$
 
 \begin{align*}
-A_h &= \frac{c}{\beta * (c + 1)}  \left( (\alpha + \beta * (b_r - b_l))^{\frac{c + 1}{c}} - (\alpha)^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{c}{\beta * (c + 1)}  \left( (\alpha + \beta * (r - \ell))^{\frac{c + 1}{c}} - \alpha^{\frac{c + 1}{c}} \right) \\
 \end{align*}
 
-II) $x_0 = b_r$
+II) $x_0 = r$
 
 \begin{align*}
-A_h &= \frac{c}{\beta * (c + 1)}  \left( (\alpha)^{\frac{c + 1}{c}} - (\alpha + \beta * (b_l - b_r))^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{c}{\beta * (c + 1)}  \left( \alpha^{\frac{c + 1}{c}} - (\alpha + \beta * (\ell - r))^{\frac{c + 1}{c}} \right) \\
 \end{align*}
+
+thus in general:
+
+\[
+	A_h &= \frac{c * \sigma(x)}{\beta * (c + 1) }  \left( (\alpha + \beta * \sigma(x) * (r - \ell))^{\frac{c + 1}{c}} - \alpha^{\frac{c + 1}{c}} \right) \\
+\]
 
 \subsection{$c < 0$}
 
-$F_T = - \frac{c}{c + 1} * (-x)^{\frac{c + 1}{c}}$
+$T_c^{-1} = (-x)^{1/c}$ and thus the integral is $F_T = - \frac{c}{c + 1} * (-x)^{\frac{c + 1}{c}}$
 
 \begin{align*}
-A_h &= \frac{1}{\beta} \left( - \frac{c}{c + 1} (-h(b_r))^{\frac{c + 1}{c}} + \frac{c}{c + 1} (-h(b_l))^{\frac{c + 1}{c}} \right) \\
-A_h &= \frac{c}{\beta * (c + 1)}  \left( - (-h(b_r))^{\frac{c + 1}{c}} + (-h(b_l))^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{1}{\beta} \left( - \frac{c}{c + 1} (-\tilde{h}(r))^{\frac{c + 1}{c}} + \frac{c}{c + 1} (-\tilde{h}(\ell))^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{c}{\beta * (c + 1)}  \left( - (-\tilde{h}(r))^{\frac{c + 1}{c}} + (-\tilde{h}(\ell))^{\frac{c + 1}{c}} \right) \\
 \end{align*}
 
-I) $x_0 = b_l$
+we use the z-trick again:
+
+I) $x_0 = \ell$
 
 \begin{align*}
-A_h &= \frac{c}{\beta * (c + 1)}  \left( - (- \alpha - \beta * (b_r - b_l))^{\frac{c + 1}{c}} + (-\alpha)^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{c}{\beta * (c + 1)}  \left( - (- \alpha - \beta * (r - \ell))^{\frac{c + 1}{c}} + (-\alpha)^{\frac{c + 1}{c}} \right) \\
 \end{align*}
 
-II) $x_0 = b_r$
+II) $x_0 = r$
 
 \begin{align*}
-A_h &= \frac{c}{\beta * (c + 1)}  \left(- (-\alpha)^{\frac{c + 1}{c}} + (- \alpha - \beta * (b_r - b_l))^{\frac{c + 1}{c}}\right) \\
+A_h &= \frac{c}{\beta * (c + 1)}  \left(- (-\alpha)^{\frac{c + 1}{c}} + (- \alpha - \beta * (r - \ell))^{\frac{c + 1}{c}}\right) \\
 \end{align*}
+
+and thus in general:
+
+\[
+	A_h &= \frac{c * \sigma(x)}{\beta * (c + 1)}  \left( - (- \alpha - \beta * \sigma(x) (r - \ell))^{\frac{c + 1}{c}} + (-\alpha)^{\frac{c + 1}{c}} \right) \\
+\]
+
+and for any $c$:
+
+\[
+	A_h &= \frac{c * \sigma(x) * sgn(c)}{\beta * (c + 1) }  \left( (sgn(c) * (\alpha + \beta * \sigma(x) * (r - \ell)))^{\frac{c + 1}{c}} - (sgn(c) * \alpha)^{\frac{c + 1}{c}} \right) \\
+\]
 
 \section{Inversion}
 
-$H(b_r) = A(b_r)$ and then $h(x) = h(b_l)$
+Moreover we can define the inverse CDF $H_i(x)^{-1}$:
+
+$H(r) = A(r)$ and then $h(x) = h(\ell)$
 
 \begin{align*}
 H(x) &= \frac{1}{\beta} \big( F_T (h(x)) - F_T(h(a)) \big)
@@ -506,7 +717,7 @@ h^{-1} \left( F_T^{-1} ( (U * \beta) + F_T(h(a))) \right) &= x \\
 x_0 + \frac{1}{\beta} \left( F_T^{-1} ( (U * \beta) + F_T(h(a))) - \alpha \right) &= x
 \end{align*}
 
-as $h(x) = \alpha + \beta * (x - x_0)$ and thus 
+as $h(x) = \alpha + \beta * (x - x_0)$ and thus
 
 \begin{align*}
 y &= \alpha + \beta * (x - x_0) \\
@@ -522,8 +733,6 @@ $F_T = e^x$, $F_T^{-1} = log(x)$
 \begin{align*}
 H^{-1}(U) &= h^{-1} \left( log \left( U\beta + e^{h(a)} \right) \right) \\
 \end{align*}
-
-\textcolor{green}{similar to current code.}
 
 \subsection{c = 1}
 
@@ -573,4 +782,4 @@ H^{-1}(U) &= h^{-1} * - \frac{c + 1}{c} * \left(- U\beta - \frac{c}{c + 1} * - (
 \end{align*}
 
 
-\end{document}          
+\end{document}
