@@ -2,10 +2,13 @@
 
 \subsection{Idea}
 
-Split the density distribution into multiple intervals for which better approximation for the \textit{hat} and \textit{squeeze} function can be constructed. Sample from the intervals using \textit{composition} and then for the selected intervals sample a value $x$ using the \textit{rejection with inversion} method.
-For example in \autoref{fig:tf_example_normal} the normal distribution is split into six intervals with different hat and squeeze functions. The efficiency of the sampling can iteratily be improved by splitting more intervals and thus yielding a better approximation to the density.
+The main idea of the Flex algorithm is to split the density distribution into multiple intervals for which better approximation for the
+\textit{hat} and \textit{squeeze} function can be constructed and to sample from these constructed intervals using the \textit{composition} method (\autoref{subsection:composition})
+and then for the selected intervals sampling a value $x$ using the \textit{rejection with inversion} method (\autoref{subsection:rejection_inversion}).
+For example, in \autoref{fig:tf_example_normal} the normal distribution is split into six intervals with different hat and squeeze functions.
+The efficiency of the sampling can iteratily be improved by splitting more intervals and thus yielding a better approximation to the density.
 
-\begin{figure}
+\begin{figure}[h]
     \centering
     \begin{subfigure}[b]{0.49\textwidth}
         \includegraphics[width=\textwidth]{figs/tf_example_normal_6.pdf}
@@ -30,12 +33,16 @@ For example in \autoref{fig:tf_example_normal} the normal distribution is split 
 
 \subsection{Transformations}
 
-To approximate the hat and squeeze function Tinflex constructs linear functions when an interval is either concave or convex.
-However as most distributions aren't \textit{concave}, but \textit{log-concave}, Tinflex uses a family of transformation of the pdf function as it operates in \textit{logspace} and can thus "force" most distributions to be concave. The transformations can be grouped in two classes:
+To approximate the hat and squeeze function, the Tinflex algorithms constructs linear functions when an interval is either concave or convex.
+However as most distributions aren't \textit{concave}, but \textit{log-concave},
+Tinflex uses a family of transformation of the probability density function (pdf) function as it operates in \textit{logspace}
+and can thus "force" most distributions to be concave.
+The transformations can be grouped in two classes:
 
 \subsubsection{$c \neq 0$}
 
-The general transformation function is $x^c$, however as inverse function is only defined in $\mathbb{C}$, we need to restrict it to positive numbers.
+The general transformation function is $x^c$, however as its inverse function is only defined in $\mathbb{C}$,
+we need to restrict it to positive numbers.
 
 \[T_c(x) = sgn(c) * x^c\]
 
@@ -66,7 +73,8 @@ Thus in general we can define the inverse function as:
 
 An example of $T_c$ with $c = 2$ can be seen in \autoref{fig:sgn_pow} and for $c = -0.5$ in \autoref{fig:sgn_pow_0_5}.
 
-Please note that (1) in the Tinflex paper and below this case is split into multiple common cases to have simpler formulas and reduce numerical errors. Furthermore (2) only with $c = 0$ the transformation is two-sided, thus for $c < 0$ $T^{-1}(x)$ is only defined for $x < 0$ in $\mathbb{R}$.
+Please note that (1) in the Tinflex paper and below this case is split into multiple common cases to have simpler formulas and reduce numerical errors.
+Furthermore, (2) only with $c = 0$ the transformation is two-sided, thus for $c < 0$\ \ $T^{-1}(x)$ is only defined for $x < 0$ in $\mathbb{R}$.
 
 \begin{figure}[h!]
 \centering
