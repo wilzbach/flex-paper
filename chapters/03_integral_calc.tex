@@ -1,0 +1,298 @@
+\section{Area $A_h$}
+
+For the sampling we want to be able to compute the inverse CDF for any $x$ in a choosen interval.
+
+The area below a constructed hat function (and thus respectively for the squeeze function) within the interval $[\ell, r]$ can be calculated by its definite integral. $F_{T_c}$ is the antiderivative (aka primitive integral) of the inverse transformation $T^{-1}$ as $h(x) = T^{-1}(\tilde{h}(x))$ and $F_{T_c}(x) = \int_{-\infty}^{x} T^{-1}(t) dt$. Note that $\tilde{h}(x)' = \beta$.
+
+\begin{align*}
+A_h &= \int_{\ell}^{r} h(x) dx \\
+	&= \int_{\ell}^{r} T^{-1}(\tilde{h}(x)) * \frac{\tilde{h'}(x)}{\tilde{h}'(x)} dx \\
+	&= \int_{\ell}^{r} (F_T(\tilde{h}(x))' * \frac{1}{\tilde{h}'(x)} dx \\
+&= \frac{1}{\beta} \big( F_{T_c} (\tilde{h}(r)) - F_{T_c}(\tilde{h}(\ell)) \big)
+\end{align*}
+
+The CDF $H_i(x)$ with $x \in [l_i, r_i]$ is thus:
+
+\[ \frac{1}{\beta} \big( F_{T_c} (\tilde{h}(x)) - F_{T_c}(\tilde{h}(\ell)) \big) \]
+
+with $H_i(r_i) = A_h$.
+
+
+Note that $H_(x)$ is only defined if $\beta \neq 0$.
+
+\subsection{c = 1}
+
+From  $T^{-1} = x$ follows trivially its integral $F_{T_1} = \frac{1}{2} * x^{\frac{2}{1}}$
+and then we can simplify the above equation to:
+
+\begin{align*}
+A_h &= \frac{1}{\beta} \big(F_{T_1}(h(r)) - F_{T_1}(h(\ell)) \big) \\
+&= \frac{1}{\beta} \left(0.5 * (\alpha + \beta * (r - x_0))^2 - 0.5 * (\alpha + \beta * (\ell - x_0))^2 \right) \\
+\end{align*}
+
+\subsubsection{Z-Trick}
+
+Z-Trick, $x_0$ can only be either $r$ or $\ell$, thus either $r - x_0$ or $\ell - x_0$ is zero. \\
+
+\textbf{$I) \quad x_0 = \ell$}
+
+\begin{align*}
+A_h &= \frac{0.5}{\beta} \left( (\alpha + \beta * (r - \ell))^2 - \alpha^2  \right) \\
+&= \frac{0.5}{\beta} \left( \alpha^2 + 2 * \alpha * \beta * (r - \ell) + (\beta * (r - \ell))^2 - \alpha^2  \right) \\
+&= \frac{0.5}{\beta} \left( 2 * \alpha * \beta * (r - \ell) + (\beta * (r - \ell))^2 \right) \\
+&= 0.5 * \left( 2 * \alpha * (r - \ell) + \beta * (r - \ell)^2 \right) \\
+&= 0.5 * (r - \ell) * \left( 2 * \alpha  + \beta * (r - \ell) \right) \\
+&= (r - \ell) * \left(\alpha  + 0.5 * \beta * (r - \ell) \right) \\
+\end{align*}
+
+\textbf{$II) \quad x_0 = r$}
+
+\begin{align*}
+A_h &= \frac{0.5}{\beta} \left( \alpha^2 - (\alpha + \beta * (\ell - r))^2 \right) \\
+&= \frac{0.5}{\beta} \left( \alpha^2 - \alpha^2 - 2 * \alpha * \beta * (\ell - r) - (\beta * (\ell - r))^2   \right) \\
+&= \frac{0.5}{\beta} \left( - 2 * \alpha * \beta * (\ell - r) - (\beta * (\ell - r))^2 \right) \\
+&= -0.5 * \left( 2 * \alpha * (\ell - r) + \beta * (\ell - r)^2 \right) \\
+&= -0.5 * (\ell - r) * \left( 2 * \alpha  + \beta * (\ell - r) \right) \\
+&= - (\ell - r) * \left( \alpha  + 0.5 * \beta * (\ell - r) \right) \\
+&= (r - \ell) * \left( \alpha  + 0.5 * \beta * (\ell - r) \right) \\
+\end{align*}
+
+this means with a helper function $\sigma(x)$ which is
+
+\[
+	\sigma(x) =
+	\begin{cases}
+		1 & \text{for } x = \ell \\
+		-1 & \text{for } x = r \\
+	\end{cases}
+\]
+
+we can summarize this in one equation:
+
+\[
+	A_{h_1} = (r - \ell) * \left( \alpha  + 0.5 * \beta * \sigma(x) * (r - \ell) \right) \\
+\]
+
+\subsection{c = 0}
+
+$F_{T_0} = e^x$
+
+\begin{align*}
+A_{h_0} &= \frac{1}{\beta} \left( e^{h(r)} - e^{h(\ell)} \right)
+\end{align*}
+
+First we simplify the equation a bit:
+
+\begin{align*}
+A_{h_0} &= \frac{1}{\beta} \left( e^{h(r)} - e^{h(\ell)} \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha + \beta (r - x_0)} - e^{\alpha + \beta (l - x_0)} \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha + \beta r - \beta x_0} - e^{\alpha + \beta l - \beta x_0} \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha} * e^{\beta r} * e^{-\beta x_0} - e^{\alpha} * e^{\beta l} * e^{- \beta * x_0} \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha - \beta x_0} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+\end{align*}
+
+Again we use the z-trick to distinguish between both cases.
+
+
+I) $x_0 = \ell$:
+
+\begin{align*}
+	A_{h_0} &= \frac{1}{\beta} \left( e^{\alpha - \beta * x_0} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha - \beta * \ell} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+	&= \frac{1}{\beta} \left(e^{\alpha - \beta \ell - \beta r} - e^{\alpha - \beta \ell + \beta \ell} \right) \\
+	&= \frac{1}{\beta} \left(e^{\alpha - \beta \ell - \beta r} - e^{\alpha} \right) \\
+	&= \frac{e^{\alpha}}{\beta} \left(e^{- \beta \ell - \beta r} - 1) \right) \\
+	&= \frac{e^{\alpha}}{\beta} \left(e^{\beta (r - \ell)} - 1 \right) \\
+\end{align*}
+
+With Taylor-Series of $n = 4$ with $k = \beta (r - \ell)$ and $e^{\alpha} = g(x)$ we can approximate this arbitrarily,
+e.g. for $n = 3$,
+
+\begin{align*}
+	A_{h_0} &= \frac{e^{\alpha}}{\beta} \left(1 + k + \frac{k^2}{2} +  \frac{k^3}{6} - 1 \right)
+\end{align*}
+
+and for more precision we can increase $n$ to $4$.
+
+\begin{align*}
+	A_{h_0} &= \frac{e^{\alpha}}{\beta} \left(1 + k + \frac{k^2}{2} +  \frac{k^3}{6} + \frac{k^4}{24} - 1 \right)
+\end{align*}
+
+\textcolor{red}{TODO: Show that this does make a difference}
+
+II) $x_0 = r$:
+
+\begin{align*}
+	A_{h_0} &= \frac{1}{\beta} \left( e^{\alpha - \beta * x_0} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+	&= \frac{1}{\beta} \left( e^{\alpha - \beta * r} * \left(e^{\beta r} - e^{\beta \ell} \right) \right) \\
+	&= \frac{1}{\beta} \left(e^{\alpha - \beta r - \beta r} - e^{\alpha - \beta r + \beta \ell} \right) \\
+	&= \frac{1}{\beta} \left(e^{\alpha} - e^{\alpha - \beta r + \beta \ell} \right) \\
+	&= \frac{e^{\alpha}}{\beta} \left(1 - e^{- \beta r + \beta \ell} ) \right) \\
+	&= \frac{e^{\alpha}}{\beta} \left(1 - e^{\beta (\ell - r)}  \right) \\
+\end{align*}
+
+hence in general
+
+\[
+	\frac{e^{\alpha} * \sigma(x)}{\beta} \left(e^{\beta * \sigma(x) (r - \ell)} - 1 \right) \\
+\]
+
+and thus:
+
+\[
+	A_{h_0} = \frac{e^{\alpha}}{\beta} * \sigma(x) * \left(e^{\beta * \sigma(x) (\ell - r)} - 1 \right)
+\]
+
+and with Taylor-series:
+
+\begin{align*}
+	A_{h_0} &= \frac{e^{\alpha} * \sigma(x)}{\beta} \left(1 + k + \frac{k^2}{2} +  \frac{k^3}{6} + \frac{k^4}{24} - 1 \right)
+\end{align*}
+
+where $k = \beta * \sigma(x) * (r - l)$
+
+\subsection{c = -0.5}
+
+$T_{-0.5}^{-1} = \frac{1}{x^2}$, hence $F_{T_{-0.5}} = - \frac{1}{x}$
+
+
+\subsubsection{Z-trick}
+
+
+\begin{align*}
+A_h &= \frac{1}{\beta} \left(\frac{-1}{\tilde{h}(r)} - \frac{-1}{\tilde{h}(\ell)} \right) \\
+& = \frac{1}{\beta} \left(- \frac{1}{\tilde{h}(r)} + \frac{1}{\tilde{h}(\ell)} \right) \\
+& = \frac{1}{\beta} \left(\frac{1}{\tilde{h}(l)} - \frac{1}{\tilde{h}(r)} \right)
+\end{align*}
+
+\subsubsection{Z-trick}
+
+I) $x_0 = \ell$
+
+\begin{align*}
+	A_{h_{-0.5}} & = \frac{0}{\beta} \left(\frac{1}{\alpha} - \frac{1}{\alpha - (\beta * (\ell - r)} \right) \\
+	& = \frac{1}{\alpha \beta} - \frac{1}{\alpha \beta - (\beta^2 * (\ell - r)} \\
+	& = \frac{\alpha \beta - (\beta^2 * (\ell - r)}{(\alpha \beta) * (\alpha \beta - (\beta^2 * (\ell - r))} - \frac{\alpha \beta}{\alpha \beta * ( \alpha \beta - (\beta^2 * (\ell - r))} \\
+	& = \frac{-\beta^2 * (\ell - r)}{\alpha \beta * \alpha \beta - \alpha \beta (\beta^2 * (\ell - r))}\\
+	& = \frac{-(\ell - r)}{\alpha^2 - \alpha \beta (\ell - r)}\\
+	& = \frac{r - \ell}{\alpha^2 + \alpha \beta (r - \ell)}\\
+\end{align*}
+
+II) $x_0 = r$
+
+\begin{align*}
+A_{h_{-0.5}} & = \frac{1}{\beta} \left(\frac{1}{\alpha - (\beta * (r - \ell)} - \frac{1}{\alpha} \right) \\
+\end{align*}
+
+and thus in general:
+
+\begin{align*}
+	A_{h_{-0.5}} & = \frac{r - \ell}{\alpha^2 + \alpha \beta * \sigma(x) * (r - \ell)}\\
+\end{align*}
+
+
+
+
+
+
+
+\subsection{c = -1}
+
+$T_{-1} = -\frac{1}{x}$, thus its integral $F_{T_{-1}} = - log(-x)$
+
+\begin{align*}
+	A_{h_{-1}} &= \frac{1}{\beta} \left(-log(-\tilde{h}(r)) + log(-\tilde{h}(l)) \right) \\
+&= \frac{1}{\beta} \left(-log(-\alpha - (\beta * (r - \ell))) + log(-\alpha) \right)
+\end{align*}
+
+we use the Z-trick again:
+
+I) $x_0 = \ell$
+
+\begin{align*}
+	A_{h_{-1}} &= \frac{1}{\beta} \left(-log(-\tilde{h}(r)) + log(-\tilde{h}(l)) \right) \\
+&= \frac{1}{\beta} \left(-log(-\alpha - (\beta * (r - \ell))) + log(-\alpha) \right)
+\end{align*}
+
+II) $x_0 = r$
+
+\begin{align*}
+A_{h_{-1}} &= \frac{1}{\beta} \left(- log(-\alpha) + log(-\alpha - (\beta * (\ell - r))) \right)
+\end{align*}
+
+
+and in general:
+
+\[
+	A_{h_{-1}} = \frac{\sigma(x)}{\beta} \left(-log(-\alpha - (\beta * \sigma(x) * (r - \ell))) + log(-\alpha) \right)
+\]
+
+Please note that if $\beta \sim 0$, this gets undefined. Thus this special case needs to be covered separately.
+
+\subsection{$c > 0$}
+
+$T_c^{-1} = x^{1/c}$, thus it's integral is $F_T = \frac{c}{c + 1} * x^{\frac{c + 1}{c}}$
+
+\begin{align*}
+A_h &= \frac{1}{\beta} \left( \frac{c}{c + 1} h(r)^{\frac{c + 1}{c}} - \frac{c}{c + 1} h(\ell)^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{c}{\beta * (c + 1)}  \left( h(r)^{\frac{c + 1}{c}} - h(\ell)^{\frac{c + 1}{c}} \right) \\
+\end{align*}
+
+we use the z-trick again:
+
+I) $x_0 = \ell$
+
+\begin{align*}
+A_h &= \frac{c}{\beta * (c + 1)}  \left( (\alpha + \beta * (r - \ell))^{\frac{c + 1}{c}} - \alpha^{\frac{c + 1}{c}} \right) \\
+\end{align*}
+
+II) $x_0 = r$
+
+\begin{align*}
+A_h &= \frac{c}{\beta * (c + 1)}  \left( \alpha^{\frac{c + 1}{c}} - (\alpha + \beta * (\ell - r))^{\frac{c + 1}{c}} \right) \\
+\end{align*}
+
+thus in general:
+
+\[
+	A_h &= \frac{c * \sigma(x)}{\beta * (c + 1) }  \left( (\alpha + \beta * \sigma(x) * (r - \ell))^{\frac{c + 1}{c}} - \alpha^{\frac{c + 1}{c}} \right) \\
+\]
+
+\subsection{$c < 0$}
+
+$T_c^{-1} = (-x)^{1/c}$ and thus the integral is $F_T = - \frac{c}{c + 1} * (-x)^{\frac{c + 1}{c}}$
+
+\begin{align*}
+A_h &= \frac{1}{\beta} \left( - \frac{c}{c + 1} (-\tilde{h}(r))^{\frac{c + 1}{c}} + \frac{c}{c + 1} (-\tilde{h}(\ell))^{\frac{c + 1}{c}} \right) \\
+A_h &= \frac{c}{\beta * (c + 1)}  \left( - (-\tilde{h}(r))^{\frac{c + 1}{c}} + (-\tilde{h}(\ell))^{\frac{c + 1}{c}} \right) \\
+\end{align*}
+
+we use the z-trick again:
+
+I) $x_0 = \ell$
+
+\begin{align*}
+A_h &= \frac{c}{\beta * (c + 1)}  \left( - (- \alpha - \beta * (r - \ell))^{\frac{c + 1}{c}} + (-\alpha)^{\frac{c + 1}{c}} \right) \\
+\end{align*}
+
+II) $x_0 = r$
+
+\begin{align*}
+A_h &= \frac{c}{\beta * (c + 1)}  \left(- (-\alpha)^{\frac{c + 1}{c}} + (- \alpha - \beta * (r - \ell))^{\frac{c + 1}{c}}\right) \\
+\end{align*}
+
+and thus in general:
+
+\[
+	A_h &= \frac{c * \sigma(x)}{\beta * (c + 1)}  \left( - (- \alpha - \beta * \sigma(x) (r - \ell))^{\frac{c + 1}{c}} + (-\alpha)^{\frac{c + 1}{c}} \right) \\
+\]
+
+and for any $c$:
+
+\[
+	A_h &= \frac{c * \sigma(x) * sgn(c)}{\beta * (c + 1) }  \left( (sgn(c) * (\alpha + \beta * \sigma(x) * (r - \ell)))^{\frac{c + 1}{c}} - (sgn(c) * \alpha)^{\frac{c + 1}{c}} \right) \\
+\]
+
+Be aware that here in both cases if $\beta \sim 0$ the results may get undefined.
+
+

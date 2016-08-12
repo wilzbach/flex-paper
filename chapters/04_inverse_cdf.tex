@@ -1,0 +1,96 @@
+\section{Inversion}
+
+Moreover with $H_i(x)$ can now define the inverse CDF $H_i(x)^{-1}$. Note that
+$H_i(x) = A_i$ if $x = r$.
+
+\begin{align*}
+H(x) &= \frac{1}{\beta} \big( F_T (h(x)) - F_T(h(\ell)) \big)
+\end{align*}
+
+then if $H(x) = U$:
+
+\begin{align*}
+U &= \frac{1}{\beta} \big( F_T (h(x)) - F_T(h(\ell)) \big) \\
+U * \beta &=\big( F_T (h(x)) - F_T(h(\ell)) \big) \\
+(U * \beta) + F_T(h(\ell)) &= F_T (h(x)) \\
+F_T^{-1} ( (U * \beta) + F_T(h(\ell))) &= F_T^{-1}( F_T (h(x))) \\
+ &= h(x) \\
+h^{-1} \left( F_T^{-1} ( (U * \beta) + F_T(h(\ell))) \right) &= x \\
+\end{align*}
+
+the inverse of $h(x) = \alpha + \beta * (x - x_0)$ is as follows:
+
+\begin{align*}
+y &= \alpha + \beta * (x - x_0) \\
+y - \alpha &= (x - x_0) \\
+\frac{y - \alpha}{\beta} &=  (x - x_0) \\
+x_0 + \frac{y - \alpha}{\beta} &=  x \\
+\end{align*}
+
+and thus with $h^{-1}(c)$ we can write:
+
+\begin{align*}
+	x &= x_0 + \frac{1}{\beta} \left( F_T^{-1} ( (U * \beta) + F_T(h(\ell))) - \alpha \right)
+\end{align*}
+
+We can simplify the equation even more for the special cases given:
+
+\subsection{c = 0}
+
+$F_T = e^x$, $F_T^{-1} = log(x)$
+
+\begin{align*}
+H^{-1}(U) &= h^{-1} \left( log \left( U\beta + e^{h(\ell)} \right) \right) \\
+		&= x_0 + \frac{1}{\beta} \left( log \left( U\beta + e^{h(\ell)} \right) - \alpha \right) \\
+\end{align*}
+
+\subsection{c = 1}
+
+$F_T = 0.5 * x^2$, $F_T^{-1} = (2x)^{0.5}$
+
+\begin{align*}
+H^{-1}(U) &= h^{-1} \left( 2 * \left( U\beta + (0.5 *h(\ell))^{2} \right) \right)^{0.5} \\
+		  &= h^{-1} \left( 2 * \left( U\beta + (0.25 * (\alpha + \beta * (\ell - x_0))^{2}) \right) \right)^{0.5} \\
+		  &= h^{-1} \left( 2 * \left( U\beta + (0.25 * (\alpha^2 + 2 * \alpha * \beta * (\ell - x_0) + \beta^2 * (\ell - x_0)^{2}) \right) \right)^{0.5} \\
+\end{align*}
+
+\subsection{c = -0.5}
+
+$F_T = -\frac{1}{x}$, $F_T^{-1} = - \frac{1}{x}$
+
+\begin{align*}
+H^{-1}(U) &= h^{-1} \left( - \frac{1}{U\beta - \frac{1}{h(\ell)}} \right) \\
+\end{align*}
+
+
+\subsection{c = -1}
+
+$F_T =-log(-x)$, $F_T^{-1} = -exp(-x)$
+
+\begin{align*}
+H^{-1}(U) &= h^{-1} \left( - exp \left( U\beta - log(-h(\ell)) \right) \right) \\
+\end{align*}
+
+
+\subsection{$c > 0$}
+
+$F_T = \frac{c}{c + 1} * x^{\frac{c + 1}{c}}$,
+$F_T^{-1} = \frac{c + 1}{c} * x^{\frac{c}{c + 1}}$
+
+
+\begin{align*}
+H^{-1}(U) &= h^{-1} * \frac{c + 1}{c} * \left( U\beta + \frac{c}{c + 1} * (h(\ell))^{\frac{c + 1}{c}} \right)^{\frac{c}{c + 1}} \\
+\end{align*}
+
+\subsection{$c < 0$}
+
+$F_T = - \frac{c}{c + 1} * (-x)^{\frac{c + 1}{c}}$,
+$F_T^{-1} = - \frac{c + 1}{c} * (-x)^{\frac{c}{c + 1}}$
+
+
+\begin{align*}
+H^{-1}(U) &= h^{-1} * - \frac{c + 1}{c} * \left(- U\beta - \frac{c}{c + 1} * - (-h(\ell))^{\frac{c + 1}{c}} \right)^{\frac{c}{c + 1}} \\
+&= h^{-1} * - \frac{c + 1}{c} * \left(- U\beta + \frac{c}{c + 1} (-h(\ell))^{\frac{c + 1}{c}} \right)^{\frac{c}{c + 1}} \\
+\end{align*}
+
+
