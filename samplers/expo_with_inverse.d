@@ -39,4 +39,10 @@ void main(string[] args)
     histogram(pdf, samples, "plots/expo.pdf", hc);
     hc.cumulative = true;
     histogram(pdf, samples, "plots/expo_cum.pdf", hc);
+
+    import std.stdio : File;
+    import std.algorithm : map, joiner;
+    // save values to file for further processing
+    auto f = File("hist_values.csv", "w");
+    f.writeln(samples.map!`a.to!string`.joiner(","));
 }
