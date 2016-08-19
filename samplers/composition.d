@@ -1,6 +1,6 @@
 #!/usr/bin/env dub
 /+ dub.sdl:
-name "flex_sin4"
+name "composition"
 dependency "matplotd" version="0.0.1"
 dependency "mir" version="0.16.0-alpha6"
 +/
