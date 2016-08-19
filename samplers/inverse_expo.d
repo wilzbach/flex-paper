@@ -1,6 +1,6 @@
 #!/usr/bin/env dub
 /+ dub.sdl:
-name "expo_inverse"
+name "inverse_expo"
 dependency "matplotd" version="0.0.1"
 +/
 
