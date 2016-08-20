@@ -29,20 +29,20 @@ void main(string[] args)
 
     string plotDir = "plots";
     import std.file : exists, mkdir;
+    import std.path : buildPath;
     if (!plotDir.exists)
         plotDir.mkdir;
 
     import matplotd.hist;
     auto pdf = (S x) => exp(-x);
-    HistogramConfig hc = {histType: "step"};
-    hc.color = "red";
-    histogram(pdf, samples, "plots/expo.pdf", hc);
+    HistogramConfig hc = {histType: "step", color:"red"};
+    histogram(pdf, samples, plotDir.buildPath("inverse_expo.pdf"), hc);
     hc.cumulative = true;
-    histogram(pdf, samples, "plots/expo_cum.pdf", hc);
+    histogram(pdf, samples, plotDir.buildPath("inverse_expo_cum.pdf"), hc);
 
     import std.stdio : File;
     import std.algorithm : map, joiner;
     // save values to file for further processing
-    auto f = File("hist_values.csv", "w");
+    auto f = File(plotDir.buildPath("hist_values.csv"), "w");
     f.writeln(samples.map!`a.to!string`.joiner(","));
 }

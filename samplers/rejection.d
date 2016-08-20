@@ -1,6 +1,6 @@
 #!/usr/bin/env dub
 /+ dub.sdl:
-name "flex_expo"
+name "rejection"
 dependency "matplotd" version="0.0.1"
 +/
 
@@ -34,13 +34,13 @@ void main()
 
     string plotDir = "plots";
     import std.file : exists, mkdir;
+    import std.path : buildPath;
     if (!plotDir.exists)
         plotDir.mkdir;
 
     import matplotd.hist;
-    HistogramConfig hc = {histType: "step"};
-    hc.color = "red";
-    histogram(pdf, samples, "plots/sin.pdf", hc);
+    HistogramConfig hc = {histType: "step", color:"red"};
+    histogram(pdf, samples, plotDir.buildPath("rejection.pdf"), hc);
     hc.cumulative = true;
-    histogram(pdf, samples, "plots/sin_cum.pdf", hc);
+    histogram(pdf, samples, plotDir.buildPath("rejection_cum.pdf"), hc);
 }

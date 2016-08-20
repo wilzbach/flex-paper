@@ -41,12 +41,13 @@ void main()
 
     string plotDir = "plots";
     import std.file : exists, mkdir;
+    import std.path : buildPath;
     if (!plotDir.exists)
         plotDir.mkdir;
 
     import matplotd.hist;
     HistogramConfig hc = {histType: "step", color:"red"};
-    histogram(samples, "plots/sin4.pdf", hc);
+    histogram(samples, plotDir.buildPath("composition.pdf"), hc);
     hc.cumulative = true;
-    histogram(samples, "plots/sin4_cum.pdf", hc);
+    histogram(samples, plotDir.buildPath("composition_cum.pdf"), hc);
 }
